@@ -27,6 +27,7 @@ from connectors.sources.atlassian import (
     prefix_group_id,
     prefix_user,
 )
+from connectors.sources.confluence_markdown import confluence_storage_to_markdown
 from connectors.utils import (
     CancellableSleeps,
     ConcurrentTasks,
@@ -913,6 +914,10 @@ class ConfluenceDataSource(BaseDataSource):
                 "ancestors": ancestor_title,
                 "space": document["space"]["name"],
                 "body": html_to_text(document["body"]["storage"]["value"]),
+                # EBCONT fork: structured copy of the content (tables, headings, lists)
+                "body_markdown": confluence_storage_to_markdown(
+                    document["body"]["storage"]["value"]
+                ),
                 "url": document_url,
                 "author": document["history"]["createdBy"][self.authorkey],
                 "createdDate": document["history"]["createdDate"],
@@ -982,13 +987,16 @@ class ConfluenceDataSource(BaseDataSource):
             ):
                 continue
 
+            storage_value = (
+                entity_details.get("body", {}).get("storage", {}).get("value")
+            )
             document = {
                 "_id": entity_details.get("id"),
                 "title": entity.get("title"),
                 "_timestamp": entity.get("lastModified"),
-                "body": html_to_text(
-                    entity_details.get("body", {}).get("storage", {}).get("value")
-                ),
+                "body": html_to_text(storage_value),
+                # EBCONT fork: structured copy of the content (tables, headings, lists)
+                "body_markdown": confluence_storage_to_markdown(storage_value),
                 "type": entity.get("entityType"),
                 "url": os.path.join(
                     self.confluence_client.host_url, entity.get("url")[1:]
@@ -1028,6 +1036,7 @@ class ConfluenceDataSource(BaseDataSource):
                     )
                     # Removing body as attachment will be downloaded lazily
                     document.pop("body")
+                    document.pop("body_markdown")
                     download_url = entity_details.get("_links", {}).get("download")
 
             yield document, download_url

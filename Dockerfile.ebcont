@@ -1,0 +1,14 @@
+# EBCONT fork: same steps as Dockerfile / Dockerfile.wolfi, but on a public base image.
+# (The pinned wolfi base image of v8.17.1 is no longer publicly pullable, and the plain
+# Dockerfile runs "apt upgrade" without -y, which aborts in non-interactive builds.)
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends make git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+WORKDIR /app
+RUN make clean install
+RUN ln -s .venv/bin /app/bin
+ENTRYPOINT []
